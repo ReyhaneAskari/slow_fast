@@ -3,16 +3,13 @@ from scipy.integrate import odeint
 import numpy as np
 
 
-def model(x, t):
-    y = x[0]
-    dy = x[1]
-    # k = 30
-    xdot = [[], []]
-    xdot[0] = dy
-    # xdot[1] = -(0.9 + 0.7 * t) * dy - k * y
-    xdot[1] = -8 * dy - y
-    return xdot
-time = np.linspace(0, 2, 100)
+def model(x_, t):
+    x = x_[0]
+    x_dot = x_[1]
+    system = [x_dot, -3.0 / t * x_dot - x]
+    return system
+
+time = np.linspace(0.001, 2, 100)
 z2 = odeint(model, [2, -1], time)
 
 # plot results

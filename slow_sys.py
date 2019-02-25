@@ -2,6 +2,8 @@ import torch
 import numpy as np
 from torch.optim import SGD
 import matplotlib.pyplot as plt
+from scipy.integrate import odeint
+
 
 steps = 50000
 init = 2
@@ -36,18 +38,28 @@ def optimization():
         optimizer.step()
     return x_1s, x_dots
 
-# def analytic_manifold(x):
-#     # x = np.linspace(init - 2, init + 2, 100)
-#     df = d_f(x)
-#     return df
+
+def ode_solver(x_, t):
+    x = x_[0]
+    x_dot = x_[1]
+    # system = [x_dot, -3.0 / t * x_dot - x]
+    system = [x_dot, -5.0 * x_dot - x]
+    return system
+
+time = np.linspace(0.001, 20, 1000)
 
 x_1s, x_dots = optimization()
+z = odeint(ode_solver, [2, 0], time)
+plt.plot(z[:, 0], z[:, 1], label='EL ODE')
+# plt.show()
 # plt.plot(x_1s)
 # plt.show()
 # df = analytic_manifold(x_1s)
-plt.plot(x_1s[1:], np.multiply(x_dots, 1e3), label="optim")
+# plt.plot(x_1s[1:], np.multiply(x_dots, 1e3), label="optim")
+# plt.plot(x_1s[1:], x_dots, label="optim")
 # import ipdb; ipdb.set_trace()
 plt.plot(x_1s[1:], np.multiply(x_1s[1:], -0.24), label="analytic")
+# import ipdb; ipdb.set_trace()
 plt.xlabel("x")
 plt.ylabel("x_dot")
 plt.legend()
