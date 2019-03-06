@@ -2,27 +2,29 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.style.use('ggplot')
-
 # from mpl_toolkits.mplot3d import Axes3D
 # from matplotlib import cm
-# plt.rcParams["figure.figsize"] = (18, 5)
+
 matplotlib.style.use('ggplot')
 plt.rcParams['axes.facecolor'] = '#f9f9f9'
 plt.rcParams['axes.formatter.useoffset'] = False
 plt.rcParams["figure.figsize"] = (10, 5)
 
 init = np.array([[-4], [-4]])
-mu = 0.05
 eta = 1.0
-n_steps = 1000
-step_size = 0.00001
-condition_number = 1
+n_steps = 2000
+k = 200
 a = 1
 A = np.array([[a, 0],
-              [0, condition_number]])
+              [0, k]])
+step_size = (2 / (1 + np.sqrt(k))) ** 2
+mu = ((np.sqrt(k) + 1) / (np.sqrt(k) - 1)
+      ) ** 2 - 1
 restart_iter = 10
 perturb_iter = 10
-perturbation = 2
+perturbation = -0.1
+init_v_1 = 0
+init_v_2 = 0
 
 def f_x_1(x):
     return 0.5 * a * x ** 2
@@ -43,15 +45,15 @@ def manifold_1(x):
 
 
 def f_x_2(x):
-    return 0.5 * condition_number * x ** 2
+    return 0.5 * k * x ** 2
 
 
 def nabla_f_x_2(x):
-    return condition_number * x
+    return k * x
 
 
 def nabla2_f_x_2(x):
-    return condition_number
+    return k
 
 
 def manifold_2(x):
@@ -66,33 +68,36 @@ def run_discrete_updates(step_size, restart=0, perturb=0):
     v_1_s = []
     v_2_s = []
     x = init + 0
-    v = np.array([[-80], [+80]])
-    # k = n_steps
+    v = np.array([[init_v_1], [init_v_2]])
     distance = []
+    found = False
     for i in range(n_steps):
         x_1_s += [x[0]]
         x_2_s += [x[1]]
         v_1_s += [v[0]]
         v_2_s += [v[1]]
         x = x + np.sqrt(step_size) * v
-        if restart and (i + 1) == restart:
-            print 'restart'
+        if restart and (i + 1) % restart == 0 and np.linalg.norm(x) > 0.2:
             v = np.array([[0], [0]])
-        elif perturb and (i + 1) == perturb:
-            print 'perturb'
+        elif perturb and (i + 1) % perturb == 0 and np.linalg.norm(x) > 0.2:
             v = np.array([[perturbation], [perturbation]])
         else:
             v = (v - A.dot(x)) / (mu + 1.0)
 
         distance.append(np.linalg.norm(x))
+        if not found and np.linalg.norm(x) < 0.0001:
+            found = True
+            print i
     return (np.array(x_1_s)[:, 0], np.array(x_2_s)[:, 0],
             np.array(v_1_s)[:, 0], np.array(v_2_s)[:, 0],
             distance)
 
-
+print 'original'
 x_1_s, x_2_s, v_1_s, v_2_s, distance = run_discrete_updates(step_size)
+print 'restart'
 x_1_s_r, x_2_s_r, v_1_s_r, v_2_s_r, distance_r = run_discrete_updates(
     step_size, restart_iter, 0)
+print 'perturbed'
 x_1_s_p, x_2_s_p, v_1_s_p, v_2_s_p, distance_p = run_discrete_updates(
     step_size, 0, perturb_iter)
 
@@ -100,9 +105,9 @@ x_1_rng = np.linspace(-7, 7, 100)
 x_2_rng = np.linspace(-7, 7, 100)
 
 fig, ax = plt.subplots(1, 2)
-ax[0].plot(x_1_s, x_2_s, color='b')
-ax[0].plot(x_1_s_r, x_2_s_r, color='r')
-ax[0].plot(x_1_s_p, x_2_s_p, color='g')
+ax[0].plot(x_1_s, x_2_s, color='b', alpha=0.8)
+ax[0].plot(x_1_s_r, x_2_s_r, color='r', alpha=0.8)
+ax[0].plot(x_1_s_p, x_2_s_p, color='g', alpha=0.8)
 X_1, X_2 = np.meshgrid(x_1_rng, x_2_rng)
 Y = f_x_1(X_1) + f_x_2(X_2)
 ax[0].contour(X_1, X_2, Y, colors=['#c1c4c9'])
@@ -114,15 +119,17 @@ ax[1].plot(range(0, n_steps), distance_r, color='r')
 ax[1].plot(range(0, n_steps), distance_p, color='g')
 ax[1].legend(['normal', 'restarted', 'perturbed'])
 
-title = ('Condition number: ' + str(condition_number) +
-         ', Restarted at iteration ' + str(restart_iter) +
-         ', Perturbed at iteration ' + str(perturb_iter) +
-         ' with velocity: ' + str(perturbation))
+title = ('Init v_1: ' + str(init_v_1) + ' Init v_2: ' + str(init_v_2) +
+         ', Condition number: ' + str(k) +
+         ', Restarted at every ' + str(restart_iter) +
+         ', Perturbed at every ' + str(perturb_iter) +
+         ' to velocity: ' + str(perturbation))
 
-plt.suptitle(title, fontdict={'horizontalalignment': 'center'})
-plt.savefig(title)
+plt.suptitle(title)
+# plt.savefig('results/' + title)
 plt.show()
 
+# plt.rcParams["figure.figsize"] = (18, 5)
 # fig, axes = plt.subplots(2, 3)
 # axes[0, 0].plot(range(n_steps), x_1_s, 'b')
 # axes[0, 0].plot(range(n_steps), v_1_s, 'r')
