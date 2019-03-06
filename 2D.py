@@ -13,16 +13,23 @@ plt.rcParams["figure.figsize"] = (10, 5)
 init = np.array([[-4], [-4]])
 eta = 1.0
 n_steps = 2000
-k = 200
+k = 100
 a = 1
 A = np.array([[a, 0],
               [0, k]])
 step_size = (2 / (1 + np.sqrt(k))) ** 2
-mu = ((np.sqrt(k) + 1) / (np.sqrt(k) - 1)
-      ) ** 2 - 1
-restart_iter = 10
-perturb_iter = 10
-perturbation = -0.1
+print 'optimal step_size: ' + str(step_size)
+step_size = 0.001
+beta = ((np.sqrt(k) - 1) / (np.sqrt(k) + 1)) ** 2
+print 'optimal beta: ' + str(beta)
+beta = 0.9
+mu = 1 / beta - 1
+print 'beta: ' + str(beta)
+print 'step_size: ' + str(step_size)
+
+restart_iter = 400
+perturb_iter = 400
+perturbation = 2
 init_v_1 = 0
 init_v_2 = 0
 
@@ -78,8 +85,10 @@ def run_discrete_updates(step_size, restart=0, perturb=0):
         v_2_s += [v[1]]
         x = x + np.sqrt(step_size) * v
         if restart and (i + 1) % restart == 0 and np.linalg.norm(x) > 0.2:
+        # if restart and (i + 1) == restart:
             v = np.array([[0], [0]])
         elif perturb and (i + 1) % perturb == 0 and np.linalg.norm(x) > 0.2:
+        # elif perturb and (i + 1) == perturb:
             v = np.array([[perturbation], [perturbation]])
         else:
             v = (v - A.dot(x)) / (mu + 1.0)
@@ -121,8 +130,8 @@ ax[1].legend(['normal', 'restarted', 'perturbed'])
 
 title = ('Init v_1: ' + str(init_v_1) + ' Init v_2: ' + str(init_v_2) +
          ', Condition number: ' + str(k) +
-         ', Restarted at every ' + str(restart_iter) +
-         ', Perturbed at every ' + str(perturb_iter) +
+         ', Restarted at every' + str(restart_iter) +
+         ', Perturbed at every' + str(perturb_iter) +
          ' to velocity: ' + str(perturbation))
 
 plt.suptitle(title)
