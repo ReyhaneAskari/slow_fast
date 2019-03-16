@@ -13,6 +13,8 @@ plt.rcParams['axes.formatter.useoffset'] = False
 plt.rcParams["figure.figsize"] = (8, 8)
 np.random.seed(11)
 
+lambda_ = 100
+
 
 def plot_surface():
     points = []
@@ -34,14 +36,14 @@ def SimGD(net, x_init, y_init):
     xys = []
     opt = optim.SGD(net.parameters(), lr=0.01, momentum=0.0)
     for i in range(1000):
-        xys += [[net.x.data[0], net.y.data[0]]]
+        xys += [[net.x.data[0] + 0, net.y.data[0] + 0]]
         loss = net()
         opt.zero_grad()
         loss.backward(create_graph=True)
         net.x.grad.data = -net.x.grad.data
         opt.step()
     xys = np.array(xys)
-    plt.plot(xys[:, 0], xys[:, 1], lw=2, color='#01117C')
+    plt.plot(xys[:, 0], xys[:, 1], lw=2, color='#01117C', label='SimGD')
 
 
 def ODE(net, x_init, y_init):
@@ -50,24 +52,25 @@ def ODE(net, x_init, y_init):
     xys = []
     opt = optim.SGD(net.parameters(), lr=0.01, momentum=0.0)
     for i in range(1000):
-        xys += [[net.x.data[0], net.y.data[0]]]
+        xys += [[net.x.data[0] + 0, net.y.data[0] + 0]]
         loss = net()
         opt.zero_grad()
         loss.backward(create_graph=True)
         net.x.grad.data = -net.x.grad.data
-        J_row_1 = torch.autograd.grad(net.x.grad, net.parameters(), retain_graph=True, create_graph=True)
-        J_row_2 = torch.autograd.grad(net.y.grad, net.parameters(), retain_graph=True, create_graph=True)
-        J = torch.cat((torch.cat(J_row_1).unsqueeze(0), torch.cat(J_row_2).unsqueeze(0)))
+        j_row_1 = torch.autograd.grad(net.x.grad, net.parameters(), retain_graph=True, create_graph=True)
+        j_row_2 = torch.autograd.grad(net.y.grad, net.parameters(), retain_graph=True, create_graph=True)
+        joc = torch.cat((torch.cat(j_row_1).unsqueeze(0), torch.cat(j_row_2).unsqueeze(0)))
         omega = torch.cat((net.x.grad.unsqueeze(0), net.y.grad.unsqueeze(0)))
-
-        omega = 0.5 * (omega + torch.mm(J.transpose(0, 1), torch.mm(torch.inverse(torch.mm(J.transpose(0, 1), J) + 1000 * Variable(torch.eye(2))), torch.mm(J.transpose(0, 1), omega))))
-        # omega = 0.5 * (omega + torch.mm(torch.mm(J.transpose(0, 1), torch.inverse(J)), omega))
+        j_t_j = torch.mm(joc.transpose(0, 1), joc)
+        j_lambda = j_t_j + lambda_ * Variable(torch.eye(2))
+        omega = 0.5 * (omega + torch.mm(joc.transpose(0, 1), torch.mm(torch.inverse(j_lambda), torch.mm(joc.transpose(0, 1), omega))))
+        # omega = 0.5 * (omega + torch.mm(torch.mm(joc.transpose(0, 1), torch.inverse(joc)), omega))
 
         net.x.grad.data = omega[0].data
         net.y.grad.data = omega[1].data
         opt.step()
     xys = np.array(xys)
-    plt.plot(xys[:, 0], xys[:, 1], lw=2, color='#01117C')
+    plt.plot(xys[:, 0], xys[:, 1], lw=2, color='g', label="ODE_naive")
 
 
 def DODE(net, x_init, y_init):
@@ -75,28 +78,37 @@ def DODE(net, x_init, y_init):
     net.y.data = torch.FloatTensor([y_init])
     xys = []
     opt = optim.SGD(net.parameters(), lr=0.01, momentum=0.0)
-    for i in range(1000):
-        xys += [[net.x.data[0], net.y.data[0]]]
+    a_n = 0.0001
+    b_n = 0.0001
+    for i in range(50000):
+        xys += [[net.x.data[0] + 0, net.y.data[0] + 0]]
         loss = net()
         opt.zero_grad()
         loss.backward(create_graph=True)
-        net.x.grad.data = -net.x.grad.data
+        # net.x.grad.data = -net.x.grad.data
+        omega = torch.cat((-net.x.grad.unsqueeze(0), net.y.grad.unsqueeze(0)))
+        f_lambda = (1e-4) * (1 - torch.exp(- torch.norm(omega, p=2)))
+        j_row_1 = torch.autograd.grad(omega[0], net.parameters(),
+                                      retain_graph=True, create_graph=True)
+        j_row_2 = torch.autograd.grad(omega[1], net.parameters(),
+                                      retain_graph=True, create_graph=True)
+        joc = torch.cat((torch.cat(j_row_1).unsqueeze(0),
+                        torch.cat(j_row_2).unsqueeze(0)))
 
-        J_row_1 = torch.autograd.grad(net.x.grad, net.parameters(), retain_graph=True, create_graph=True)
-        J_row_2 = torch.autograd.grad(net.y.grad, net.parameters(), retain_graph=True, create_graph=True)
-        J = torch.cat((torch.cat(J_row_1).unsqueeze(0), torch.cat(J_row_2).unsqueeze(0)))
-
-        omega = torch.cat((net.x.grad.unsqueeze(0), net.y.grad.unsqueeze(0)))
-
-        g_x = torch.autograd.grad(net.x * net.v[0] + net.y * net.v[1] + loss, net.x, retain_graph=True)
-        g_y = torch.autograd.grad(net.x * net.v[0] + net.y * net.v[1] - loss, net.y, retain_graph=True)
-        g_v = torch.autograd.grad(torch.norm(torch.mm(J, net.v.unsqueeze(1)) - omega) + 10 * torch.norm(net.v), net.v, retain_graph=True)
-        net.x.data = net.x.data + 0.0001 * g_x[0].data
-        net.y.data = net.y.data + 0.0001 * g_y[0].data
-        net.v.data = net.v.data + 0.0001 * g_v[0].data
+        g_x = torch.autograd.grad(omega[0] * net.v[0] + omega[1] * net.v[1] - loss,
+                                  net.x, retain_graph=True)
+        g_y = torch.autograd.grad(omega[0] * net.v[0] + omega[1] * net.v[1] + loss,
+                                  net.y, retain_graph=True)
+        g_v = torch.autograd.grad(torch.norm(torch.mm(
+            joc, net.v.unsqueeze(1)) - omega) + f_lambda * torch.norm(net.v), net.v,
+            retain_graph=True)
+        net.x.data = net.x.data - a_n * g_x[0].data
+        net.y.data = net.y.data - a_n * g_y[0].data
+        net.v.data = net.v.data - b_n * g_v[0].data
         # opt.step()
     xys = np.array(xys)
-    plt.plot(xys[:, 0], xys[:, 1], lw=2, color='red')
+    # import ipdb; ipdb.set_trace()
+    plt.plot(xys[:, 0], xys[:, 1], lw=2, color='red', label='Discrete ODE')
 
 
 class Net(nn.Module):
@@ -121,6 +133,12 @@ net = Net()
 plot_surface()
 SimGD(net, -5, -10)
 SimGD(net, 10, -10)
+SimGD(net, -10, 4)
+ODE(net, -5, -10)
+ODE(net, 10, -10)
+ODE(net, -10, 4)
 DODE(net, -5, -10)
 DODE(net, 10, -10)
+DODE(net, -10, 4)
+plt.legend()
 plt.show()

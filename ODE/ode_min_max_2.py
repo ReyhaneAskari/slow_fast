@@ -46,7 +46,7 @@ def SimGD(net, x_init, y_init):
     plt.plot(xys[:, 0], xys[:, 1], lw=2, color='#01117C', label='SimGD')
 
 
-def ODE(net, x_init, y_init):
+def ODE_naive(net, x_init, y_init):
     net.x.data = torch.FloatTensor([x_init])
     net.y.data = torch.FloatTensor([y_init])
     xys = []
@@ -70,10 +70,10 @@ def ODE(net, x_init, y_init):
         net.y.grad.data = omega[1].data
         opt.step()
     xys = np.array(xys)
-    plt.plot(xys[:, 0], xys[:, 1], lw=2, color='g', label="ODE")
+    plt.plot(xys[:, 0], xys[:, 1], lw=2, color='g', label="ODE_naive")
 
 
-def DODE(net, x_init, y_init):
+def LSS(net, x_init, y_init):
     net.x.data = torch.FloatTensor([x_init])
     net.y.data = torch.FloatTensor([y_init])
     xys = []
@@ -117,7 +117,7 @@ def DODE(net, x_init, y_init):
             omega[1] + torch.exp(-kesi_2 * jtv_norm_2) * jtv[1])
         # opt.step()
     xys = np.array(xys)
-    plt.plot(xys[:, 0], xys[:, 1], lw=2, color='red', label='Discrete ODE')
+    plt.plot(xys[:, 0], xys[:, 1], lw=2, color='red', label='LSS')
 
 
 class Net(nn.Module):
@@ -142,9 +142,9 @@ net = Net()
 plot_surface()
 SimGD(net, -5, -10)
 SimGD(net, 10, -10)
-ODE(net, -5, -10)
-ODE(net, 10, -10)
-DODE(net, -5, -10)
-DODE(net, 10, -10)
+ODE_naive(net, -5, -10)
+ODE_naive(net, 10, -10)
+LSS(net, -5, -10)
+LSS(net, 10, -10)
 plt.legend()
 plt.show()
