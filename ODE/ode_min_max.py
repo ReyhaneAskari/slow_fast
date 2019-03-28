@@ -78,16 +78,17 @@ def DODE(net, x_init, y_init):
     net.y.data = torch.FloatTensor([y_init])
     xys = []
     opt = optim.SGD(net.parameters(), lr=0.01, momentum=0.0)
-    a_n = 0.0001
-    b_n = 0.0001
-    for i in range(50000):
+    a_n = 0.004  # gamma_1
+    b_n = 0.005  # gamma_2
+    kesi_1 = 0.9
+    for i in range(5000):
         xys += [[net.x.data[0] + 0, net.y.data[0] + 0]]
         loss = net()
         opt.zero_grad()
         loss.backward(create_graph=True)
         # net.x.grad.data = -net.x.grad.data
         omega = torch.cat((-net.x.grad.unsqueeze(0), net.y.grad.unsqueeze(0)))
-        f_lambda = (1e-4) * (1 - torch.exp(- torch.norm(omega, p=2)))
+        f_lambda = kesi_1 * (1 - torch.exp(- torch.norm(omega, p=2)))
         j_row_1 = torch.autograd.grad(omega[0], net.parameters(),
                                       retain_graph=True, create_graph=True)
         j_row_2 = torch.autograd.grad(omega[1], net.parameters(),
@@ -132,13 +133,13 @@ class Net(nn.Module):
 net = Net()
 plot_surface()
 SimGD(net, -5, -10)
-SimGD(net, 10, -10)
-SimGD(net, -10, 4)
+# SimGD(net, 10, -10)
+# SimGD(net, -10, 4)
 ODE(net, -5, -10)
-ODE(net, 10, -10)
-ODE(net, -10, 4)
+# ODE(net, 10, -10)
+# ODE(net, -10, 4)
 DODE(net, -5, -10)
-DODE(net, 10, -10)
-DODE(net, -10, 4)
+# DODE(net, 10, -10)
+# DODE(net, -10, 4)
 plt.legend()
 plt.show()
